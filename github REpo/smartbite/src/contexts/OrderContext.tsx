@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { ordersAPI } from '../services/api';
+import { ordersAPI } from '../services/servesoft-api';
 import { useAuth } from './AuthContext';
 
 export interface OrderItem {

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { menuAPI } from '../services/api';
+import { menuAPI } from '../services/servesoft-api';
 
 export interface MenuItem {
   id: string;

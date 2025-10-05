@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
-import socketService from '../services/socket';
+import { authAPI } from '../services/servesoft-api';
 
 export interface User {
   id: string;
@@ -21,41 +20,47 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const mapServeSoftRole = (role: string): 'customer' | 'owner' | 'agent' | 'admin' => {
+  const roleMap: Record<string, 'customer' | 'owner' | 'agent' | 'admin'> = {
+    'customer': 'customer',
+    'manager': 'owner',
+    'driver': 'agent',
+    'admin': 'admin'
+  };
+  return roleMap[role] || 'customer';
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('smartbite_token');
-    if (token) {
-      authAPI.verify()
-        .then(response => {
-          setUser(response.data.user);
-          socketService.connect(token);
-        })
-        .catch(() => {
-          localStorage.removeItem('smartbite_token');
-          localStorage.removeItem('smartbite_user');
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
+    authAPI.verify()
+      .then(response => {
+        const mappedUser = {
+          ...response.data.user,
+          role: mapServeSoftRole(response.data.user.role)
+        };
+        setUser(mappedUser);
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const response = await authAPI.login({ email, password });
-      const { token, user: userData } = response.data;
-      
-      localStorage.setItem('smartbite_token', token);
-      localStorage.setItem('smartbite_user', JSON.stringify(userData));
-      setUser(userData);
-      
-      socketService.connect(token);
-      
+      const mappedUser = {
+        ...response.data.user,
+        role: mapServeSoftRole(response.data.user.role)
+      };
+
+      setUser(mappedUser);
+
       return true;
     } catch (error) {
       console.error('Login error:', error);
@@ -66,14 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (userData: any): Promise<boolean> => {
     try {
       const response = await authAPI.register(userData);
-      const { token, user: newUser } = response.data;
-      
-      localStorage.setItem('smartbite_token', token);
-      localStorage.setItem('smartbite_user', JSON.stringify(newUser));
-      setUser(newUser);
-      
-      socketService.connect(token);
-      
+      const mappedUser = {
+        ...response.data.user,
+        role: mapServeSoftRole(response.data.user.role)
+      };
+
+      setUser(mappedUser);
+
       return true;
     } catch (error) {
       console.error('Registration error:', error);
@@ -82,10 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('smartbite_token');
-    localStorage.removeItem('smartbite_user');
+    authAPI.logout().catch(() => {});
     setUser(null);
-    socketService.disconnect();
   };
 
   return (
